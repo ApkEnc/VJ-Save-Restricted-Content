@@ -1,4 +1,4 @@
-# Save Restricted Bot
+# Save Restricted Bot(Fixed the error during a message break) 
 
 *A Telegram Bot, Which can send you restricted content by it's post link*
 
