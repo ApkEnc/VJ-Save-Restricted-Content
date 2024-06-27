@@ -39,28 +39,62 @@ async def handle_telegram_errors(func, *args, **kwargs):
         traceback.print_exc()  # Print full traceback for debugging
         # Handle other unexpected errors
 
-# Function to stop ongoing processes
-async def stop_all_processes():
-    # Implement logic to stop ongoing tasks
-    # For example, stop threads, clear queues, etc.
-    pass
+# download status
+async def downstatus(statusfile, message):
+    while not os.path.exists(statusfile):
+        await asyncio.sleep(3)
 
-# Command handler for /stop command
-@bot.on_message(filters.command(["stop"]))
-async def stop_command(client, message):
-    await handle_telegram_errors(bot.send_message, message.chat.id, "Stopping all ongoing processes...")
-    await stop_all_processes()
-    await handle_telegram_errors(bot.send_message, message.chat.id, "All ongoing processes stopped.")
+    await asyncio.sleep(3)
+    while os.path.exists(statusfile):
+        try:
+            with open(statusfile, "r") as downread:
+                txt = downread.read()
+            await handle_telegram_errors(bot.edit_message_text, message.chat.id, message.id, f"__Downloaded__ : **{txt}**")
+            await asyncio.sleep(10)
+        except FileNotFoundError:
+            break
+        except Exception as e:
+            print(f"Error in downstatus: {e}")
+            traceback.print_exc()
+            await asyncio.sleep(5)
 
-# Your existing start command
+# upload status
+async def upstatus(statusfile, message):
+    while not os.path.exists(statusfile):
+        await asyncio.sleep(3)
+
+    await asyncio.sleep(3)
+    while os.path.exists(statusfile):
+        try:
+            with open(statusfile, "r") as upread:
+                txt = upread.read()
+            await handle_telegram_errors(bot.edit_message_text, message.chat.id, message.id, f"__Uploaded__ : **{txt}**")
+            await asyncio.sleep(10)
+        except FileNotFoundError:
+            break
+        except Exception as e:
+            print(f"Error in upstatus: {e}")
+            traceback.print_exc()
+            await asyncio.sleep(5)
+
+# progress writter
+def progress(current, total, message, type):
+    try:
+        with open(f'{message.id}{type}status.txt', "w") as fileup:
+            fileup.write(f"{current * 100 / total:.1f}%")
+    except Exception as e:
+        print(f"Error in progress: {e}")
+        traceback.print_exc()
+
+# start command
 @bot.on_message(filters.command(["start"]))
-async def send_start(client, message):
-    await handle_telegram_errors(bot.send_message, message.chat.id, f"**👋 Hi {message.from_user.mention}**, **I am Save Restricted Bot, I can send you restricted content by its post link**\n\n{USAGE}",
-                                reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("🌐 Update Channel", url="https://t.me/VJ_Botz")]]), reply_to_message_id=message.message_id)
+async def send_start(client: pyrogram.client.Client, message: pyrogram.types.messages_and_media.message.Message):
+    await handle_telegram_errors(bot.send_message, message.chat.id, f"**__👋 Hi** **{message.from_user.mention}**, **I am Save Restricted Bot, I can send you restricted content by its post link__**\n\n{USAGE}",
+                                reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("🌐 Update Channel", url="https://t.me/VJ_Botz")]]), reply_to_message_id=message.id)
 
-# Your existing save function
+# save function to handle incoming messages
 @bot.on_message(filters.text)
-async def save(client, message):
+async def save(client: pyrogram.client.Client, message: pyrogram.types.messages_and_media.message.Message):
     if message.text.strip() == "":
         await handle_telegram_errors(bot.send_message, message.chat.id, "Error: Message is empty or contains invalid characters.")
         return
@@ -68,20 +102,20 @@ async def save(client, message):
     # Process different types of message URLs
     if "https://t.me/+" in message.text or "https://t.me/joinchat/" in message.text:
         if acc is None:
-            await handle_telegram_errors(bot.send_message, message.chat.id, f"**String Session is not Set**", reply_to_message_id=message.message_id)
+            await handle_telegram_errors(bot.send_message, message.chat.id, f"**String Session is not Set**", reply_to_message_id=message.id)
             return
 
         try:
             try:
                 await acc.join_chat(message.text)
             except Exception as e:
-                await handle_telegram_errors(bot.send_message, message.chat.id, f"**Error** : __{e}__", reply_to_message_id=message.message_id)
+                await handle_telegram_errors(bot.send_message, message.chat.id, f"**Error** : __{e}__", reply_to_message_id=message.id)
                 return
-            await handle_telegram_errors(bot.send_message, message.chat.id, "**Chat Joined**", reply_to_message_id=message.message_id)
+            await handle_telegram_errors(bot.send_message, message.chat.id, "**Chat Joined**", reply_to_message_id=message.id)
         except UserAlreadyParticipant:
-            await handle_telegram_errors(bot.send_message, message.chat.id, "**Chat already Joined**", reply_to_message_id=message.message_id)
+            await handle_telegram_errors(bot.send_message, message.chat.id, "**Chat already Joined**", reply_to_message_id=message.id)
         except InviteHashExpired:
-            await handle_telegram_errors(bot.send_message, message.chat.id, "**Invalid Link**", reply_to_message_id=message.message_id)
+            await handle_telegram_errors(bot.send_message, message.chat.id, "**Invalid Link**", reply_to_message_id=message.id)
 
     elif "https://t.me/" in message.text:
         datas = message.text.split("/")
@@ -97,7 +131,7 @@ async def save(client, message):
                 chatid = int("-100" + datas[4])
 
                 if acc is None:
-                    await handle_telegram_errors(bot.send_message, message.chat.id, f"**String Session is not Set**", reply_to_message_id=message.message_id)
+                    await handle_telegram_errors(bot.send_message, message.chat.id, f"**String Session is not Set**", reply_to_message_id=message.id)
                     return
 
                 await handle_private(message, chatid, msgid)
@@ -106,13 +140,13 @@ async def save(client, message):
                 username = datas[4]
 
                 if acc is None:
-                    await handle_telegram_errors(bot.send_message, message.chat.id, f"**String Session is not Set**", reply_to_message_id=message.message_id)
+                    await handle_telegram_errors(bot.send_message, message.chat.id, f"**String Session is not Set**", reply_to_message_id=message.id)
                     return
 
                 try:
                     await handle_private(message, username, msgid)
                 except Exception as e:
-                    await handle_telegram_errors(bot.send_message, message.chat.id, f"**Error** : __{e}__", reply_to_message_id=message.message_id)
+                    await handle_telegram_errors(bot.send_message, message.chat.id, f"**Error** : __{e}__", reply_to_message_id=message.id)
 
             else:
                 username = datas[3]
@@ -120,41 +154,41 @@ async def save(client, message):
                 try:
                     msg = await handle_telegram_errors(bot.get_messages, username, msgid)
                 except UsernameNotOccupied:
-                    await handle_telegram_errors(bot.send_message, message.chat.id, f"**The username is not occupied by anyone**", reply_to_message_id=message.message_id)
+                    await handle_telegram_errors(bot.send_message, message.chat.id, f"**The username is not occupied by anyone**", reply_to_message_id=message.id)
                     return
 
                 try:
-                    await handle_telegram_errors(bot.copy_message, message.chat.id, msg.chat.id, msg.message_id, reply_to_message_id=message.message_id)
+                    await handle_telegram_errors(bot.copy_message, message.chat.id, msg.chat.id, msg.id, reply_to_message_id=message.id)
                 except:
                     if acc is None:
-                        await handle_telegram_errors(bot.send_message, message.chat.id, f"**String Session is not Set**", reply_to_message_id=message.message_id)
+                        await handle_telegram_errors(bot.send_message, message.chat.id, f"**String Session is not Set**", reply_to_message_id=message.id)
                         return
 
                     try:
                         await handle_private(message, username, msgid)
                     except Exception as e:
-                        await handle_telegram_errors(bot.send_message, message.chat.id, f"**Error** : __{e}__", reply_to_message_id=message.message_id)
+                        await handle_telegram_errors(bot.send_message, message.chat.id, f"**Error** : __{e}__", reply_to_message_id=message.id)
 
             # Add a small delay between processing messages
             await asyncio.sleep(3)
 
-# Function to handle private messages
-async def handle_private(message, chatid, msgid):
+# handle private messages
+async def handle_private(message: pyrogram.types.messages_and_media.message.Message, chatid: int, msgid: int):
     try:
         msg = await handle_telegram_errors(acc.get_messages, chatid, msgid)
         msg_type = get_message_type(msg)
 
         if "Text" == msg_type:
-            await handle_telegram_errors(bot.send_message, message.chat.id, msg.text, entities=msg.entities, reply_to_message_id=message.message_id)
+            await handle_telegram_errors(bot.send_message, message.chat.id, msg.text, entities=msg.entities, reply_to_message_id=message.id)
             return
 
-        smsg = await handle_telegram_errors(bot.send_message, message.chat.id, '__Downloading__', reply_to_message_id=message.message_id)
-        dosta = threading.Thread(target=lambda: asyncio.run(downstatus(f'{message.message_id}downstatus.txt', smsg)), daemon=True)
+        smsg = await handle_telegram_errors(bot.send_message, message.chat.id, '__Downloading__', reply_to_message_id=message.id)
+        dosta = threading.Thread(target=lambda: asyncio.run(downstatus(f'{message.id}downstatus.txt', smsg)), daemon=True)
         dosta.start()
         file = await handle_telegram_errors(acc.download_media, msg, progress=progress, progress_args=[message, "down"])
-        os.remove(f'{message.message_id}downstatus.txt')
+        os.remove(f'{message.id}downstatus.txt')
 
-        upsta = threading.Thread(target=lambda: asyncio.run(upstatus(f'{message.message_id}upstatus.txt', smsg)), daemon=True)
+        upsta = threading.Thread(target=lambda: asyncio.run(upstatus(f'{message.id}upstatus.txt', smsg)), daemon=True)
         upsta.start()
 
         if "Document" == msg_type:
@@ -163,7 +197,7 @@ async def handle_private(message, chatid, msgid):
             except:
                 thumb = None
 
-            await handle_telegram_errors(bot.send_document, message.chat.id, file, thumb=thumb, caption=msg.caption, caption_entities=msg.caption_entities, reply_to_message_id=message.message_id, progress=progress, progress_args=[message, "up"])
+            await handle_telegram_errors(bot.send_document, message.chat.id, file, thumb=thumb, caption=msg.caption, caption_entities=msg.caption_entities, reply_to_message_id=message.id, progress=progress, progress_args=[message, "up"])
             if thumb is not None:
                 os.remove(thumb)
 
@@ -173,18 +207,18 @@ async def handle_private(message, chatid, msgid):
             except:
                 thumb = None
 
-            await handle_telegram_errors(bot.send_video, message.chat.id, file, duration=msg.video.duration, width=msg.video.width, height=msg.video.height, thumb=thumb, caption=msg.caption, caption_entities=msg.caption_entities, reply_to_message_id=message.message_id, progress=progress, progress_args=[message, "up"])
+            await handle_telegram_errors(bot.send_video, message.chat.id, file, duration=msg.video.duration, width=msg.video.width, height=msg.video.height, thumb=thumb, caption=msg.caption, caption_entities=msg.caption_entities, reply_to_message_id=message.id, progress=progress, progress_args=[message, "up"])
             if thumb is not None:
                 os.remove(thumb)
 
         elif "Animation" == msg_type:
-            await handle_telegram_errors(bot.send_animation, message.chat.id, file, reply_to_message_id=message.message_id)
+            await handle_telegram_errors(bot.send_animation, message.chat.id, file, reply_to_message_id=message.id)
 
         elif "Sticker" == msg_type:
-            await handle_telegram_errors(bot.send_sticker, message.chat.id, file, reply_to_message_id=message.message_id)
+            await handle_telegram_errors(bot.send_sticker, message.chat.id, file, reply_to_message_id=message.id)
 
         elif "Voice" == msg_type:
-            await handle_telegram_errors(bot.send_voice, message.chat.id, file, caption=msg.caption, thumb=thumb, caption_entities=msg.caption_entities, reply_to_message_id=message.message_id, progress=progress, progress_args=[message, "up"])
+            await handle_telegram_errors(bot.send_voice, message.chat.id, file, caption=msg.caption, thumb=thumb, caption_entities=msg.caption_entities, reply_to_message_id=message.id, progress=progress, progress_args=[message, "up"])
 
         elif "Audio" == msg_type:
             try:
